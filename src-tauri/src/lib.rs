@@ -142,15 +142,15 @@ a:hover {
     }
 
     a {
-        color: #66b3ff;
+        color: #58a6ff;
     }
 
     a:visited {
-        color: #bb86fc;
+        color: #d2a8ff;
     }
 
     a:hover {
-        color: #99ccff;
+        color: #79b8ff;
     }
 }
 </style>"#;
