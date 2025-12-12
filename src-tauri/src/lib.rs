@@ -111,6 +111,26 @@ fn inject_link_handler_script(html_content: Vec<u8>) -> Vec<u8> {
         }
     };
 
+    // Default CSS for EPUB content with dark mode support
+    let default_css = r#"<style>
+/* Default styling for EPUB content - applied before EPUB's own CSS */
+:root {
+    color-scheme: light dark;
+}
+
+html, body {
+    background-color: #ffffff;
+    color: #1a1a1a;
+}
+
+@media (prefers-color-scheme: dark) {
+    html, body {
+        background-color: #1e1e1e;
+        color: #e4e4e4;
+    }
+}
+</style>"#;
+
     // JavaScript to inject
     let script = r#"<script>
 //<![CDATA[
@@ -166,16 +186,19 @@ fn inject_link_handler_script(html_content: Vec<u8>) -> Vec<u8> {
         0
     };
 
+    // Combine CSS and script for injection
+    let combined_injection = format!("{}\n{}", default_css, script);
+
     if injection_point == 0 {
-        // Prepend script
-        let mut result = script.to_string();
+        // Prepend both CSS and script
+        let mut result = combined_injection;
         result.push_str(&html_str);
         result.into_bytes()
     } else {
         // Insert at injection point
         let mut result = String::new();
         result.push_str(&html_str[..injection_point]);
-        result.push_str(script);
+        result.push_str(&combined_injection);
         result.push_str(&html_str[injection_point..]);
         result.into_bytes()
     }
