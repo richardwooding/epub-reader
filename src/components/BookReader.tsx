@@ -96,7 +96,6 @@ function BookReader() {
         <div className="content-viewer">
           {currentContent ? (
             <IframeViewer
-              key={currentContent}
               uri={currentContent}
               title={bookTitle}
               width="100%"

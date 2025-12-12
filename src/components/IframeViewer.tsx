@@ -25,13 +25,6 @@ function IframeViewer({
 }: IframeViewerProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
-  useEffect(() => {
-    // Force reload the iframe when URI changes
-    if (iframeRef.current) {
-      iframeRef.current.src = uri;
-    }
-  }, [uri]);
-
   // Listen for postMessage from iframe to handle external links
   useEffect(() => {
     function handleMessage(event: MessageEvent) {
