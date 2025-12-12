@@ -92,7 +92,6 @@ function BookReader() {
       <div className="reader-content">
         <TableOfContents
           toc={toc}
-          bookTitle={bookTitle}
           onItemClick={handleTocItemClick}
         />
         <div className="content-viewer">
