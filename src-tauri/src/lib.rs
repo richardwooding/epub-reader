@@ -121,6 +121,20 @@ fn inject_link_handler_script(html_content: Vec<u8>) -> Vec<u8> {
 html, body {
     background-color: #ffffff;
     color: #1a1a1a;
+
+    /* Responsive margins for comfortable reading */
+    padding-left: max(16px, min(5vw, 80px));
+    padding-right: max(16px, min(5vw, 80px));
+    padding-top: max(16px, min(3vh, 48px));
+    padding-bottom: max(32px, min(5vh, 64px));
+
+    /* Optimal line width for readability */
+    max-width: 50rem;
+    margin-left: auto;
+    margin-right: auto;
+
+    /* Improve text rendering */
+    line-height: 1.6;
 }
 
 a {
@@ -139,6 +153,20 @@ a:hover {
     html, body {
         background-color: #1e1e1e;
         color: #e4e4e4;
+
+        /* Responsive margins for comfortable reading */
+        padding-left: max(16px, min(5vw, 80px));
+        padding-right: max(16px, min(5vw, 80px));
+        padding-top: max(16px, min(3vh, 48px));
+        padding-bottom: max(32px, min(5vh, 64px));
+
+        /* Optimal line width for readability */
+        max-width: 50rem;
+        margin-left: auto;
+        margin-right: auto;
+
+        /* Improve text rendering */
+        line-height: 1.6;
     }
 
     a {
