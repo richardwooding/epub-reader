@@ -25,6 +25,13 @@ function IframeViewer({
 }: IframeViewerProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
+  // Control iframe src via useEffect (more reliable than JSX src prop for custom protocols)
+  useEffect(() => {
+    if (iframeRef.current) {
+      iframeRef.current.src = uri;
+    }
+  }, [uri]);
+
   // Listen for postMessage from iframe to handle external links
   useEffect(() => {
     function handleMessage(event: MessageEvent) {
@@ -78,7 +85,6 @@ function IframeViewer({
   return (
     <iframe
       ref={iframeRef}
-      src={uri}
       title={title}
       width={width}
       height={height}
