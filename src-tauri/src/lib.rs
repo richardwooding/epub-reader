@@ -123,10 +123,34 @@ html, body {
     color: #1a1a1a;
 }
 
+a {
+    color: #0066cc;
+}
+
+a:visited {
+    color: #551a8b;
+}
+
+a:hover {
+    color: #003d7a;
+}
+
 @media (prefers-color-scheme: dark) {
     html, body {
         background-color: #1e1e1e;
         color: #e4e4e4;
+    }
+
+    a {
+        color: #66b3ff;
+    }
+
+    a:visited {
+        color: #bb86fc;
+    }
+
+    a:hover {
+        color: #99ccff;
     }
 }
 </style>"#;
