@@ -31,12 +31,13 @@ function BookReader() {
       setLoading(true);
       setError(null);
 
+      // Fetch the real book title from metadata
+      const title = await invoke<string>("get_book_title", { bookKey });
+      setBookTitle(title);
+
       // Fetch the table of contents
       const tocData = await invoke<TocItem[]>("get_book_toc", { bookKey });
       setToc(tocData);
-
-      // Set book title (remove .epub extension)
-      setBookTitle(bookKey?.replace(".epub", "") || "Unknown Book");
 
       // Set first chapter as default content
       if (tocData.length > 0) {
@@ -91,6 +92,7 @@ function BookReader() {
       <div className="reader-content">
         <TableOfContents
           toc={toc}
+          bookTitle={bookTitle}
           onItemClick={handleTocItemClick}
         />
         <div className="content-viewer">

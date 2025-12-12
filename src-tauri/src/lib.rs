@@ -64,6 +64,18 @@ fn all_book_covers(state: tauri::State<LibraryState>) -> Vec<(String, String, St
 }
 
 #[tauri::command]
+fn get_book_title(book_key: String, state: tauri::State<LibraryState>) -> Result<String, String> {
+    let books = state.0.lock().unwrap();
+
+    if let Some(book) = books.get(&book_key) {
+        let title = book.mdata("title").unwrap_or(book_key.replace(".epub", ""));
+        Ok(title)
+    } else {
+        Err(format!("Book not found: {}", book_key))
+    }
+}
+
+#[tauri::command]
 fn get_book_toc(book_key: String, state: tauri::State<LibraryState>) -> Result<Vec<TocItem>, String> {
     let mut books = state.0.lock().unwrap();
 
@@ -260,7 +272,7 @@ pub fn run() {
                 }
             });
         })
-        .invoke_handler(tauri::generate_handler![greet, all_book_covers, get_book_toc])
+        .invoke_handler(tauri::generate_handler![greet, all_book_covers, get_book_title, get_book_toc])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
