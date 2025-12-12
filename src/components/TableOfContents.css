@@ -1,0 +1,109 @@
+.table-of-contents {
+  width: 300px;
+  height: 100%;
+  overflow-y: auto;
+  background-color: #ffffff;
+  border-right: 1px solid #e0e0e0;
+  padding: 1rem;
+  box-sizing: border-box;
+}
+
+.toc-header {
+  margin: 0 0 1rem 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.toc-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.toc-item {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.toc-button {
+  width: 100%;
+  text-align: left;
+  padding: 0.5rem 0.75rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: #333;
+  transition: background-color 0.2s, color 0.2s;
+  border-radius: 4px;
+}
+
+.toc-button:hover {
+  background-color: #f0f0f0;
+  color: #007bff;
+}
+
+.toc-empty {
+  color: #999;
+  font-size: 0.9rem;
+  padding: 1rem 0;
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .table-of-contents {
+    background-color: #1e1e1e;
+    border-right-color: #404040;
+  }
+
+  .toc-header {
+    color: #f6f6f6;
+  }
+
+  .toc-button {
+    color: #f6f6f6;
+  }
+
+  .toc-button:hover {
+    background-color: #2a2a2a;
+    color: #61dafb;
+  }
+
+  .toc-empty {
+    color: #aaa;
+  }
+}
+
+/* Scrollbar styling */
+.table-of-contents::-webkit-scrollbar {
+  width: 8px;
+}
+
+.table-of-contents::-webkit-scrollbar-track {
+  background: #f0f0f0;
+}
+
+.table-of-contents::-webkit-scrollbar-thumb {
+  background: #c0c0c0;
+  border-radius: 4px;
+}
+
+.table-of-contents::-webkit-scrollbar-thumb:hover {
+  background: #a0a0a0;
+}
+
+@media (prefers-color-scheme: dark) {
+  .table-of-contents::-webkit-scrollbar-track {
+    background: #2a2a2a;
+  }
+
+  .table-of-contents::-webkit-scrollbar-thumb {
+    background: #505050;
+  }
+
+  .table-of-contents::-webkit-scrollbar-thumb:hover {
+    background: #606060;
+  }
+}
