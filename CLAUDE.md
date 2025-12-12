@@ -19,8 +19,9 @@ This is a Tauri v2 desktop EPUB reader application with React + TypeScript front
   - Entry point: `src-tauri/src/main.rs` (delegates to lib.rs)
   - Application logic: `src-tauri/src/lib.rs`
   - Build script: `src-tauri/build.rs`
-  - Tauri commands are defined with `#[tauri::command]` macro
-  - Commands are registered in the `invoke_handler` (see `lib.rs:11`)
+  - Tauri commands are defined with `#[tauri::command]` macro (starting at `lib.rs:20`)
+  - Commands are registered in the `invoke_handler` (see `lib.rs:263`)
+  - Script injection function `inject_link_handler_script()` handles external link interception (`lib.rs:92-168`)
 
 - **Communication**: Frontend calls backend via `invoke()` function from `@tauri-apps/api/core`
   - Example: `await invoke("greet", { name })` calls the Rust `greet` function
@@ -77,6 +78,32 @@ The application registers a custom `epub://` protocol handler to serve EPUB reso
 - Example: `epub://frankenstein.epub/OEBPS/cover.jpg`
 - Handles: Images, HTML/XHTML pages, CSS, and other EPUB resources
 - Returns appropriate MIME types and content
+- **Script Injection**: Automatically injects JavaScript into HTML/XHTML content to handle link clicks (see `lib.rs:92-168`)
+
+### External Link Handling
+The application intercepts link clicks within EPUB content and opens external links in the system's default browser:
+
+**How it works:**
+1. **Backend (Rust)**: `inject_link_handler_script()` function in `lib.rs` injects JavaScript into all HTML/XHTML content served via the `epub://` protocol
+2. **Injected Script**: Intercepts all clicks on `<a>` tags using event delegation
+3. **Link Classification**:
+   - **Relative links** (e.g., `chapter2.html`) → Navigate within iframe
+   - **epub:// protocol links** → Navigate within iframe
+   - **All other protocols** (http://, https://, mailto:, tel:, ftp:, etc.) → Open externally
+4. **Communication**: External links send a postMessage to the parent window
+5. **Frontend (React)**: IframeViewer component listens for messages and uses Tauri's opener plugin to open links in system browser
+
+**Link Behavior:**
+| Link Type | Example | Behavior |
+|-----------|---------|----------|
+| Relative | `chapter2.html` | Navigate within iframe |
+| Anchor | `#section-2` | Scroll within iframe |
+| EPUB protocol | `epub://book.epub/page.html` | Navigate within iframe |
+| HTTP/HTTPS | `https://example.com` | Open in system browser |
+| Email | `mailto:test@example.com` | Open in email client |
+| Telephone | `tel:+1234567890` | Open in dialer |
+| FTP | `ftp://example.com` | Open in system browser/FTP client |
+| Other protocols | `steam://...` | Open with system handler |
 
 ### Available Tauri Commands
 
@@ -132,7 +159,17 @@ struct TocItem {
 - Reusable component for rendering EPUB content in iframes
 - Props: `uri`, `title`, `width`, `height`, `style`, `className`
 - Used for HTML/XHTML content rendering in BookReader
-- Security: Uses sandbox attribute with limited permissions
+- Security: Uses sandbox attribute with limited permissions (`allow-same-origin allow-scripts allow-forms`)
+
+**Implementation Details:**
+- **Single-mechanism src control**: Uses useEffect to imperatively set `iframeRef.current.src = uri` (more reliable than React's src prop for custom protocols)
+- **No JSX src prop**: The iframe element has no `src` attribute in JSX to avoid double-loading
+- **External link handling**: Listens for postMessage events from injected script in iframe content
+- **Message validation**: Validates message type, URL, and origin before processing
+- **Tauri integration**: Uses `openUrl()` from `@tauri-apps/plugin-opener` to open external links in system browser
+
+**Why this approach:**
+React's `src` prop doesn't reliably trigger iframe reloads with custom protocols like `epub://`. The useEffect directly invokes the browser's iframe src setter, which ensures consistent reload behavior without double-loading or flickering.
 
 ### TypeScript Types (`src/types/book.ts`)
 
@@ -190,7 +227,7 @@ cargo test   # Run Rust tests
 ## Adding New Tauri Commands
 
 1. Define the command in `src-tauri/src/lib.rs` with `#[tauri::command]`
-2. Add it to the `invoke_handler` macro (currently at `lib.rs:168`):
+2. Add it to the `invoke_handler` macro (currently at `lib.rs:263`):
    ```rust
    .invoke_handler(tauri::generate_handler![greet, all_book_covers, get_book_toc, new_command])
    ```
@@ -272,6 +309,7 @@ epub-reader/
 ### Rust
 - `epub = "2.0"` - EPUB parsing and metadata extraction
 - `tauri = "2.9"` - Desktop app framework
+- `tauri-plugin-opener = "2"` - Opens URLs in system browser/applications
 - `serde = { version = "1", features = ["derive"] }` - Serialization
 - `http = "1.2"` - HTTP types for custom protocol
 
@@ -279,4 +317,5 @@ epub-reader/
 - `react = "^18.3"` - UI framework
 - `react-router-dom = "^7.1"` - URL-based routing and navigation
 - `@tauri-apps/api = "^2.3"` - Tauri frontend bindings
+- `@tauri-apps/plugin-opener = "^2"` - Opens URLs in system browser/applications
 - `vite = "^6.0"` - Build tool and dev server
