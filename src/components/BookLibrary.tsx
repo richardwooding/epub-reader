@@ -8,6 +8,7 @@ function BookLibrary() {
   const [books, setBooks] = useState<[string, string, string][]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
     loadBookCovers();
@@ -47,6 +48,11 @@ function BookLibrary() {
     );
   }
 
+  // Filter books based on search term
+  const filteredBooks = books.filter(([, bookTitle]) =>
+    bookTitle.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   return (
     <div className="book-library">
       <h2>My Library</h2>
@@ -56,8 +62,32 @@ function BookLibrary() {
           <p>Add EPUB files to ~/books to get started.</p>
         </div>
       ) : (
-        <div className="book-grid">
-          {books.map(([bookKey, bookTitle, coverUri]) => {
+        <>
+          <div className="search-container">
+            <input
+              type="text"
+              className="search-input"
+              placeholder="Search by title..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+            {searchTerm && (
+              <button
+                className="clear-search"
+                onClick={() => setSearchTerm("")}
+                aria-label="Clear search"
+              >
+                ×
+              </button>
+            )}
+          </div>
+          {filteredBooks.length === 0 ? (
+            <div className="empty-state">
+              <p>No books match "{searchTerm}"</p>
+            </div>
+          ) : (
+            <div className="book-grid">
+              {filteredBooks.map(([bookKey, bookTitle, coverUri]) => {
             const handleBookClick = () => {
               navigate(`/book/${bookKey}`);
             };
@@ -82,7 +112,9 @@ function BookLibrary() {
               </div>
             );
           })}
-        </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

@@ -11,6 +11,78 @@
   color: #333;
 }
 
+.search-container {
+  position: relative;
+  margin-bottom: 1rem;
+  max-width: 500px;
+}
+
+.search-input {
+  width: 100%;
+  padding: 0.75rem 2.5rem 0.75rem 1rem;
+  font-size: 1rem;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  background: #fff;
+  color: #333;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #007bff;
+}
+
+.search-input::placeholder {
+  color: #999;
+}
+
+.clear-search {
+  position: absolute;
+  right: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  font-size: 1.5rem;
+  color: #999;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  margin: 0;
+  line-height: 1;
+  transition: color 0.2s;
+}
+
+.clear-search:hover {
+  color: #333;
+  background: transparent;
+}
+
+@media (prefers-color-scheme: dark) {
+  .search-input {
+    background: #2a2a2a;
+    color: #f6f6f6;
+    border-color: #444;
+  }
+
+  .search-input:focus {
+    border-color: #0d6efd;
+  }
+
+  .search-input::placeholder {
+    color: #777;
+  }
+
+  .clear-search {
+    color: #999;
+  }
+
+  .clear-search:hover {
+    color: #f6f6f6;
+  }
+}
+
 @media (prefers-color-scheme: dark) {
   .book-library h2 {
     color: #f6f6f6;

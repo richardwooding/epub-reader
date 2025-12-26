@@ -64,6 +64,18 @@ fn all_book_covers(state: tauri::State<LibraryState>) -> Vec<(String, String, St
 }
 
 #[tauri::command]
+fn get_book_title(book_key: String, state: tauri::State<LibraryState>) -> Result<String, String> {
+    let books = state.0.lock().unwrap();
+
+    if let Some(book) = books.get(&book_key) {
+        let title = book.mdata("title").unwrap_or(book_key.replace(".epub", ""));
+        Ok(title)
+    } else {
+        Err(format!("Book not found: {}", book_key))
+    }
+}
+
+#[tauri::command]
 fn get_book_toc(book_key: String, state: tauri::State<LibraryState>) -> Result<Vec<TocItem>, String> {
     let mut books = state.0.lock().unwrap();
 
@@ -98,6 +110,78 @@ fn inject_link_handler_script(html_content: Vec<u8>) -> Vec<u8> {
             return html_content;
         }
     };
+
+    // Default CSS for EPUB content with dark mode support
+    let default_css = r#"<style>
+/* Default styling for EPUB content - applied before EPUB's own CSS */
+:root {
+    color-scheme: light dark;
+}
+
+html, body {
+    background-color: #ffffff;
+    color: #1a1a1a;
+
+    /* Responsive margins for comfortable reading */
+    padding-left: max(16px, min(5vw, 80px));
+    padding-right: max(16px, min(5vw, 80px));
+    padding-top: max(16px, min(3vh, 48px));
+    padding-bottom: max(32px, min(5vh, 64px));
+
+    /* Optimal line width for readability */
+    max-width: 50rem;
+    margin-left: auto;
+    margin-right: auto;
+
+    /* Improve text rendering */
+    line-height: 1.6;
+}
+
+a {
+    color: #0066cc;
+}
+
+a:visited {
+    color: #551a8b;
+}
+
+a:hover {
+    color: #003d7a;
+}
+
+@media (prefers-color-scheme: dark) {
+    html, body {
+        background-color: #1e1e1e;
+        color: #e4e4e4;
+
+        /* Responsive margins for comfortable reading */
+        padding-left: max(16px, min(5vw, 80px));
+        padding-right: max(16px, min(5vw, 80px));
+        padding-top: max(16px, min(3vh, 48px));
+        padding-bottom: max(32px, min(5vh, 64px));
+
+        /* Optimal line width for readability */
+        max-width: 50rem;
+        margin-left: auto;
+        margin-right: auto;
+
+        /* Improve text rendering */
+        line-height: 1.6;
+    }
+
+    a {
+        color: #58a6ff;
+    }
+
+    a:visited {
+        color: #d2a8ff;
+    }
+
+    a:hover {
+        color: #79b8ff;
+    }
+}
+</style>"#;
 
     // JavaScript to inject
     let script = r#"<script>
@@ -154,16 +238,19 @@ fn inject_link_handler_script(html_content: Vec<u8>) -> Vec<u8> {
         0
     };
 
+    // Combine CSS and script for injection
+    let combined_injection = format!("{}\n{}", default_css, script);
+
     if injection_point == 0 {
-        // Prepend script
-        let mut result = script.to_string();
+        // Prepend both CSS and script
+        let mut result = combined_injection;
         result.push_str(&html_str);
         result.into_bytes()
     } else {
         // Insert at injection point
         let mut result = String::new();
         result.push_str(&html_str[..injection_point]);
-        result.push_str(script);
+        result.push_str(&combined_injection);
         result.push_str(&html_str[injection_point..]);
         result.into_bytes()
     }
@@ -260,7 +347,7 @@ pub fn run() {
                 }
             });
         })
-        .invoke_handler(tauri::generate_handler![greet, all_book_covers, get_book_toc])
+        .invoke_handler(tauri::generate_handler![greet, all_book_covers, get_book_title, get_book_toc])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
