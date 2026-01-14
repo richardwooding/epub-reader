@@ -109,9 +109,7 @@
   flex: 1;
   overflow: hidden;
   background-color: #ffffff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  /* Removed flex centering to allow iframe to fill entire space */
 }
 
 .no-content {

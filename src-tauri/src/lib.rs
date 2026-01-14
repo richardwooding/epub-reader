@@ -248,14 +248,31 @@ a:hover {
 /* ============================================
    PAGINATION: CSS Multi-Column Layout
    ============================================ */
+
+/* Base styles for html/body to ensure full height */
+html {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+}
+
+body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+}
+
 body.paginated {
     max-width: none !important;
-    column-width: 100vw;
+    column-width: 100%;        /* Changed from 100vw - uses iframe width */
     column-gap: 0;
     column-fill: auto;
-    height: 100vh;
-    width: 100vw;
-    overflow: hidden;
+    height: 100%;              /* Changed from 100vh - uses iframe height */
+    width: 100%;               /* Changed from 100vw - uses iframe width */
+    overflow-x: hidden;        /* Hide horizontal scrollbar */
+    overflow-y: hidden;        /* Hide vertical scrollbar */
     padding: 0 !important;
     margin: 0 !important;
     scroll-behavior: smooth;
@@ -351,26 +368,31 @@ body.paginated table {
     function calculatePages() {
         if (!paginationEnabled) return;
 
-        // Get viewport width
-        pageWidth = window.innerWidth;
+        // Use documentElement dimensions for accurate iframe measurements
+        pageWidth = document.documentElement.clientWidth;
+        const pageHeight = document.documentElement.clientHeight;
 
-        // Force layout recalculation
-        document.body.style.height = window.innerHeight + 'px';
+        // Set explicit column width and body height
+        document.body.style.columnWidth = pageWidth + 'px';
+        document.body.style.height = pageHeight + 'px';
 
-        // Calculate total scroll width
-        const scrollWidth = document.body.scrollWidth;
+        // Use requestAnimationFrame to wait for layout to complete
+        requestAnimationFrame(function() {
+            // Calculate total scroll width after layout
+            const scrollWidth = document.body.scrollWidth;
 
-        // Calculate total pages (at least 1)
-        totalPages = Math.max(1, Math.ceil(scrollWidth / pageWidth));
+            // Calculate total pages (at least 1)
+            totalPages = Math.max(1, Math.ceil(scrollWidth / pageWidth));
 
-        // Ensure current page is within bounds
-        currentPage = Math.min(currentPage, totalPages - 1);
+            // Ensure current page is within bounds
+            currentPage = Math.min(currentPage, totalPages - 1);
 
-        // Navigate to current page
-        navigateToPage(currentPage, false);
+            // Navigate to current page
+            navigateToPage(currentPage, false);
 
-        // Notify parent
-        sendPaginationUpdate();
+            // Notify parent
+            sendPaginationUpdate();
+        });
     }
 
     // ==========================================
