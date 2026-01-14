@@ -266,11 +266,11 @@ body {
 
 body.paginated {
     max-width: none !important;
-    column-width: 100%;        /* Changed from 100vw - uses iframe width */
+    /* column-width and width set by JavaScript, not CSS */
     column-gap: 0;
     column-fill: auto;
     height: 100%;              /* Changed from 100vh - uses iframe height */
-    width: 100%;               /* Changed from 100vw - uses iframe width */
+    /* width is set by JavaScript to match pageWidth */
     overflow-x: hidden;        /* Hide horizontal scrollbar */
     overflow-y: hidden;        /* Hide vertical scrollbar */
     padding: 0 !important;
@@ -320,22 +320,27 @@ body.paginated table {
     // INITIALIZATION
     // ==========================================
     function initializePagination() {
-        // Enable pagination by default
-        enablePagination();
+        // Wait for DOM to be ready before enabling pagination
+        function init() {
+            // Enable pagination by default
+            enablePagination();
 
-        // Listen for messages from parent
-        window.addEventListener('message', handleParentMessage);
+            // Listen for messages from parent
+            window.addEventListener('message', handleParentMessage);
 
-        // Recalculate on resize
-        window.addEventListener('resize', debounce(calculatePages, 250));
+            // Recalculate on resize
+            window.addEventListener('resize', debounce(calculatePages, 250));
 
-        // Initial calculation after content loads
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', function() {
-                setTimeout(calculatePages, 100);
-            });
-        } else {
+            // Initial calculation after content loads
             setTimeout(calculatePages, 100);
+        }
+
+        // Check if DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            // DOM is already ready
+            init();
         }
     }
 
@@ -344,6 +349,10 @@ body.paginated table {
     // ==========================================
     function enablePagination() {
         if (paginationEnabled) return;
+        if (!document.body) {
+            console.error('[Pagination] document.body is not available yet');
+            return;
+        }
 
         paginationEnabled = true;
         document.body.classList.add('paginated');
@@ -356,6 +365,7 @@ body.paginated table {
 
     function disablePagination() {
         if (!paginationEnabled) return;
+        if (!document.body) return;
 
         paginationEnabled = false;
         document.body.classList.remove('paginated');
@@ -367,32 +377,57 @@ body.paginated table {
     // ==========================================
     function calculatePages() {
         if (!paginationEnabled) return;
+        if (!document.body) {
+            console.error('[Pagination] document.body is not available for calculatePages');
+            return;
+        }
 
         // Use documentElement dimensions for accurate iframe measurements
         pageWidth = document.documentElement.clientWidth;
         const pageHeight = document.documentElement.clientHeight;
 
-        // Set explicit column width and body height
+        // Set explicit body dimensions - width AND column width must match
+        // This ensures only ONE column is visible at a time
+        document.body.style.width = pageWidth + 'px';
         document.body.style.columnWidth = pageWidth + 'px';
         document.body.style.height = pageHeight + 'px';
 
-        // Use requestAnimationFrame to wait for layout to complete
-        requestAnimationFrame(function() {
-            // Calculate total scroll width after layout
+        // Poll until columns are formed (scrollWidth > pageWidth indicates multiple columns)
+        let attempts = 0;
+        const maxAttempts = 20;
+
+        function checkAndUpdate() {
             const scrollWidth = document.body.scrollWidth;
 
-            // Calculate total pages (at least 1)
-            totalPages = Math.max(1, Math.ceil(scrollWidth / pageWidth));
+            console.log('[Pagination Debug] Attempt', attempts + 1, {
+                pageWidth: pageWidth,
+                scrollWidth: scrollWidth,
+                ratio: scrollWidth / pageWidth
+            });
 
-            // Ensure current page is within bounds
-            currentPage = Math.min(currentPage, totalPages - 1);
+            // Check if columns have formed (scrollWidth > pageWidth indicates content spans multiple columns)
+            // OR if we've reached max attempts (fall back to at least 1 page)
+            if (scrollWidth > pageWidth || attempts >= maxAttempts) {
+                totalPages = Math.max(1, Math.ceil(scrollWidth / pageWidth));
+                currentPage = Math.min(currentPage, totalPages - 1);
 
-            // Navigate to current page
-            navigateToPage(currentPage, false);
+                console.log('[Pagination Result]', {
+                    totalPages: totalPages,
+                    currentPage: currentPage,
+                    scrollWidth: scrollWidth,
+                    pageWidth: pageWidth
+                });
 
-            // Notify parent
-            sendPaginationUpdate();
-        });
+                navigateToPage(currentPage, false);
+                sendPaginationUpdate();
+            } else {
+                attempts++;
+                requestAnimationFrame(checkAndUpdate);
+            }
+        }
+
+        // Start checking
+        requestAnimationFrame(checkAndUpdate);
     }
 
     // ==========================================
@@ -400,6 +435,7 @@ body.paginated table {
     // ==========================================
     function navigateToPage(pageNumber, animated) {
         if (!paginationEnabled) return;
+        if (!document.body) return;
 
         // Default animated to true
         if (animated === undefined) animated = true;
