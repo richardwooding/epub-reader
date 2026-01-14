@@ -50,6 +50,55 @@
   width: 100px; /* Same width as back button to center title */
 }
 
+.pagination-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.page-nav-button {
+  padding: 0.5rem 0.75rem;
+  background: none;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+  color: #333;
+  transition: background-color 0.2s, border-color 0.2s;
+  min-width: 40px;
+}
+
+.page-nav-button:hover:not(:disabled) {
+  background-color: #f0f0f0;
+  border-color: #007bff;
+  color: #007bff;
+}
+
+.page-nav-button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.page-indicator {
+  font-size: 0.9rem;
+  color: #666;
+  min-width: 100px;
+  text-align: center;
+}
+
+.progress-bar-container {
+  height: 3px;
+  background-color: #e0e0e0;
+  width: 100%;
+  flex-shrink: 0;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background-color: #007bff;
+  transition: width 0.3s ease;
+}
+
 .reader-content {
   display: flex;
   flex: 1;
@@ -115,6 +164,29 @@
 
   .book-title-header {
     color: #f6f6f6;
+  }
+
+  .page-nav-button {
+    color: #f6f6f6;
+    border-color: #404040;
+  }
+
+  .page-nav-button:hover:not(:disabled) {
+    background-color: #2a2a2a;
+    border-color: #61dafb;
+    color: #61dafb;
+  }
+
+  .page-indicator {
+    color: #ccc;
+  }
+
+  .progress-bar-container {
+    background-color: #404040;
+  }
+
+  .progress-bar-fill {
+    background-color: #61dafb;
   }
 
   .content-viewer {

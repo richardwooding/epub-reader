@@ -101,6 +101,69 @@ fn get_book_toc(book_key: String, state: tauri::State<LibraryState>) -> Result<V
     }
 }
 
+#[tauri::command]
+fn get_spine(book_key: String, state: tauri::State<LibraryState>) -> Result<Vec<String>, String> {
+    let books = state.0.lock().unwrap();
+
+    if let Some(book) = books.get(&book_key) {
+        // spine is Vec<String> of resource IDs
+        // Convert to content paths using resources map
+        let spine_paths: Vec<String> = book.spine.iter()
+            .filter_map(|id| {
+                book.resources.get(id).map(|(path, _)| {
+                    path.to_str().unwrap_or("").to_string()
+                })
+            })
+            .collect();
+
+        Ok(spine_paths)
+    } else {
+        Err(format!("Book not found: {}", book_key))
+    }
+}
+
+#[tauri::command]
+fn get_current_spine_index(
+    book_key: String,
+    content_path: String,
+    state: tauri::State<LibraryState>
+) -> Result<Option<usize>, String> {
+    let books = state.0.lock().unwrap();
+
+    if let Some(book) = books.get(&book_key) {
+        // Find index in spine where resource path matches content_path
+        let index = book.spine.iter().position(|id| {
+            book.resources.get(id)
+                .map(|(path, _)| path.to_str().unwrap_or("") == content_path)
+                .unwrap_or(false)
+        });
+
+        Ok(index)
+    } else {
+        Err(format!("Book not found: {}", book_key))
+    }
+}
+
+#[tauri::command]
+fn get_spine_item(
+    book_key: String,
+    index: usize,
+    state: tauri::State<LibraryState>
+) -> Result<Option<String>, String> {
+    let books = state.0.lock().unwrap();
+
+    if let Some(book) = books.get(&book_key) {
+        if let Some(resource_id) = book.spine.get(index) {
+            if let Some((path, _)) = book.resources.get(resource_id) {
+                return Ok(Some(path.to_str().unwrap_or("").to_string()));
+            }
+        }
+        Ok(None)
+    } else {
+        Err(format!("Book not found: {}", book_key))
+    }
+}
+
 fn inject_link_handler_script(html_content: Vec<u8>) -> Vec<u8> {
     // Convert bytes to string
     let html_str = match String::from_utf8(html_content.clone()) {
@@ -181,14 +244,324 @@ a:hover {
         color: #79b8ff;
     }
 }
+
+/* ============================================
+   PAGINATION: CSS Multi-Column Layout
+   ============================================ */
+body.paginated {
+    max-width: none !important;
+    column-width: 100vw;
+    column-gap: 0;
+    column-fill: auto;
+    height: 100vh;
+    width: 100vw;
+    overflow: hidden;
+    padding: 0 !important;
+    margin: 0 !important;
+    scroll-behavior: smooth;
+}
+
+body.paginated > * {
+    padding-left: max(16px, min(5vw, 80px));
+    padding-right: max(16px, min(5vw, 80px));
+    padding-top: max(16px, min(3vh, 48px));
+    padding-bottom: max(32px, min(5vh, 64px));
+}
+
+/* Prevent images and tables from breaking across columns */
+body.paginated img,
+body.paginated table {
+    -webkit-column-break-inside: avoid;
+    break-inside: avoid;
+    max-width: 100%;
+}
+
+/* Dark mode pagination */
+@media (prefers-color-scheme: dark) {
+    body.paginated {
+        background-color: #1e1e1e;
+        color: #e4e4e4;
+    }
+}
 </style>"#;
 
-    // JavaScript to inject
+    // JavaScript to inject - includes pagination and link handling
     let script = r#"<script>
 //<![CDATA[
 (function() {
     'use strict';
 
+    // ==========================================
+    // PAGINATION STATE
+    // ==========================================
+    let paginationEnabled = false;
+    let currentPage = 0;
+    let totalPages = 0;
+    let pageWidth = 0;
+
+    // ==========================================
+    // INITIALIZATION
+    // ==========================================
+    function initializePagination() {
+        // Enable pagination by default
+        enablePagination();
+
+        // Listen for messages from parent
+        window.addEventListener('message', handleParentMessage);
+
+        // Recalculate on resize
+        window.addEventListener('resize', debounce(calculatePages, 250));
+
+        // Initial calculation after content loads
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', function() {
+                setTimeout(calculatePages, 100);
+            });
+        } else {
+            setTimeout(calculatePages, 100);
+        }
+    }
+
+    // ==========================================
+    // PAGINATION CONTROL
+    // ==========================================
+    function enablePagination() {
+        if (paginationEnabled) return;
+
+        paginationEnabled = true;
+        document.body.classList.add('paginated');
+
+        setTimeout(function() {
+            calculatePages();
+            sendPaginationUpdate();
+        }, 100);
+    }
+
+    function disablePagination() {
+        if (!paginationEnabled) return;
+
+        paginationEnabled = false;
+        document.body.classList.remove('paginated');
+        document.body.scrollLeft = 0;
+    }
+
+    // ==========================================
+    // PAGE CALCULATION
+    // ==========================================
+    function calculatePages() {
+        if (!paginationEnabled) return;
+
+        // Get viewport width
+        pageWidth = window.innerWidth;
+
+        // Force layout recalculation
+        document.body.style.height = window.innerHeight + 'px';
+
+        // Calculate total scroll width
+        const scrollWidth = document.body.scrollWidth;
+
+        // Calculate total pages (at least 1)
+        totalPages = Math.max(1, Math.ceil(scrollWidth / pageWidth));
+
+        // Ensure current page is within bounds
+        currentPage = Math.min(currentPage, totalPages - 1);
+
+        // Navigate to current page
+        navigateToPage(currentPage, false);
+
+        // Notify parent
+        sendPaginationUpdate();
+    }
+
+    // ==========================================
+    // NAVIGATION
+    // ==========================================
+    function navigateToPage(pageNumber, animated) {
+        if (!paginationEnabled) return;
+
+        // Default animated to true
+        if (animated === undefined) animated = true;
+
+        // Clamp page number
+        pageNumber = Math.max(0, Math.min(pageNumber, totalPages - 1));
+
+        // Update current page
+        currentPage = pageNumber;
+
+        // Calculate scroll position
+        const scrollLeft = pageNumber * pageWidth;
+
+        // Scroll to page
+        if (animated) {
+            document.body.scrollTo({
+                left: scrollLeft,
+                behavior: 'smooth'
+            });
+        } else {
+            document.body.scrollLeft = scrollLeft;
+        }
+
+        // Notify parent
+        sendPaginationUpdate();
+    }
+
+    function nextPage() {
+        navigateToPage(currentPage + 1);
+    }
+
+    function previousPage() {
+        navigateToPage(currentPage - 1);
+    }
+
+    // ==========================================
+    // EVENT HANDLERS
+    // ==========================================
+    function handleKeyDown(event) {
+        if (!paginationEnabled) return;
+
+        switch (event.key) {
+            case 'ArrowLeft':
+                event.preventDefault();
+                previousPage();
+                break;
+            case 'ArrowRight':
+                event.preventDefault();
+                nextPage();
+                break;
+            case 'PageUp':
+                event.preventDefault();
+                previousPage();
+                break;
+            case 'PageDown':
+                event.preventDefault();
+                nextPage();
+                break;
+            case 'Home':
+                event.preventDefault();
+                navigateToPage(0);
+                break;
+            case 'End':
+                event.preventDefault();
+                navigateToPage(totalPages - 1);
+                break;
+        }
+    }
+
+    function handleClick(event) {
+        if (!paginationEnabled) return;
+
+        // Check if click is on a link - if so, let link handler deal with it
+        if (event.target.closest('a')) return;
+
+        // Get click position relative to viewport
+        const clickX = event.clientX;
+        const viewportWidth = window.innerWidth;
+
+        // Define click zones (20% left, 20% right, 60% middle)
+        const leftZone = viewportWidth * 0.2;
+        const rightZone = viewportWidth * 0.8;
+
+        if (clickX < leftZone) {
+            event.preventDefault();
+            previousPage();
+        } else if (clickX > rightZone) {
+            event.preventDefault();
+            nextPage();
+        }
+        // Middle zone does nothing (reserved for text selection, etc.)
+    }
+
+    let touchStartX = 0;
+    let touchStartY = 0;
+
+    function handleTouchStart(event) {
+        if (!paginationEnabled) return;
+
+        touchStartX = event.touches[0].clientX;
+        touchStartY = event.touches[0].clientY;
+    }
+
+    function handleTouchEnd(event) {
+        if (!paginationEnabled) return;
+
+        const touchEndX = event.changedTouches[0].clientX;
+        const touchEndY = event.changedTouches[0].clientY;
+
+        const deltaX = touchEndX - touchStartX;
+        const deltaY = touchEndY - touchStartY;
+
+        // Only register horizontal swipes (more horizontal than vertical)
+        if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 50) {
+            event.preventDefault();
+
+            if (deltaX > 0) {
+                // Swipe right -> previous page
+                previousPage();
+            } else {
+                // Swipe left -> next page
+                nextPage();
+            }
+        }
+    }
+
+    // ==========================================
+    // PARENT COMMUNICATION
+    // ==========================================
+    function handleParentMessage(event) {
+        if (!event.data || typeof event.data !== 'object') return;
+
+        const message = event.data;
+
+        switch (message.type) {
+            case 'pagination-next':
+                nextPage();
+                break;
+            case 'pagination-previous':
+                previousPage();
+                break;
+            case 'pagination-goto':
+                if (typeof message.page === 'number') {
+                    navigateToPage(message.page);
+                }
+                break;
+            case 'pagination-enable':
+                enablePagination();
+                break;
+            case 'pagination-disable':
+                disablePagination();
+                break;
+        }
+    }
+
+    function sendPaginationUpdate() {
+        if (window.parent && window.parent !== window) {
+            window.parent.postMessage({
+                type: 'pagination-update',
+                currentPage: currentPage,
+                totalPages: totalPages,
+                enabled: paginationEnabled
+            }, '*');
+        }
+    }
+
+    // ==========================================
+    // UTILITIES
+    // ==========================================
+    function debounce(func, wait) {
+        let timeout;
+        return function() {
+            const context = this;
+            const args = arguments;
+            clearTimeout(timeout);
+            timeout = setTimeout(function() {
+                func.apply(context, args);
+            }, wait);
+        };
+    }
+
+    // ==========================================
+    // LINK HANDLER (existing functionality)
+    // ==========================================
     function handleLinkClick(event) {
         const target = event.target.closest('a');
         if (!target || !target.href) return;
@@ -221,7 +594,17 @@ a:hover {
         }
     }
 
+    // ==========================================
+    // ATTACH EVENT LISTENERS
+    // ==========================================
     document.addEventListener('click', handleLinkClick, true);
+    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('click', handleClick);
+    document.addEventListener('touchstart', handleTouchStart);
+    document.addEventListener('touchend', handleTouchEnd);
+
+    // Initialize pagination
+    initializePagination();
 })();
 //]]>
 </script>"#;
@@ -347,7 +730,15 @@ pub fn run() {
                 }
             });
         })
-        .invoke_handler(tauri::generate_handler![greet, all_book_covers, get_book_title, get_book_toc])
+        .invoke_handler(tauri::generate_handler![
+            greet,
+            all_book_covers,
+            get_book_title,
+            get_book_toc,
+            get_spine,
+            get_current_spine_index,
+            get_spine_item
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

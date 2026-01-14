@@ -1,4 +1,4 @@
-import { CSSProperties, useEffect, useRef } from "react";
+import { CSSProperties, useEffect, useRef, forwardRef, useImperativeHandle } from "react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 
 interface IframeViewerProps {
@@ -8,22 +8,32 @@ interface IframeViewerProps {
   height?: string | number;
   style?: CSSProperties;
   className?: string;
+  onPaginationUpdate?: (currentPage: number, totalPages: number) => void;
 }
 
-interface EpubLinkMessage {
-  type: string;
-  url: string;
+export interface IframeViewerRef {
+  sendMessage: (message: any) => void;
 }
 
-function IframeViewer({
+const IframeViewer = forwardRef<IframeViewerRef, IframeViewerProps>(({
   uri,
   title = "Content Viewer",
   width = "100%",
   height = "100%",
   style,
   className,
-}: IframeViewerProps) {
+  onPaginationUpdate,
+}, ref) => {
   const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  // Expose sendMessage method to parent via ref
+  useImperativeHandle(ref, () => ({
+    sendMessage: (message: any) => {
+      if (iframeRef.current?.contentWindow) {
+        iframeRef.current.contentWindow.postMessage(message, '*');
+      }
+    }
+  }));
 
   // Control iframe src via useEffect (more reliable than JSX src prop for custom protocols)
   useEffect(() => {
@@ -40,27 +50,34 @@ function IframeViewer({
         return;
       }
 
-      const message = event.data as EpubLinkMessage;
+      const message = event.data;
 
-      // Check message type
-      if (message.type !== 'epub-external-link') {
+      // Handle external links
+      if (message.type === 'epub-external-link') {
+        // Validate URL exists
+        if (!message.url || typeof message.url !== 'string') {
+          console.error('[IframeViewer] Invalid external link message:', message);
+          return;
+        }
+
+        // Validate origin (only accept from epub:// protocol or null origin)
+        if (event.origin !== 'null' && !event.origin.startsWith('epub://')) {
+          console.warn('[IframeViewer] Rejected message from origin:', event.origin);
+          return;
+        }
+
+        // Open external link in system browser
+        handleExternalLink(message.url);
         return;
       }
 
-      // Validate URL exists
-      if (!message.url || typeof message.url !== 'string') {
-        console.error('[IframeViewer] Invalid external link message:', message);
+      // Handle pagination updates
+      if (message.type === 'pagination-update') {
+        if (onPaginationUpdate && typeof message.currentPage === 'number' && typeof message.totalPages === 'number') {
+          onPaginationUpdate(message.currentPage, message.totalPages);
+        }
         return;
       }
-
-      // Validate origin (only accept from epub:// protocol or null origin)
-      if (event.origin !== 'null' && !event.origin.startsWith('epub://')) {
-        console.warn('[IframeViewer] Rejected message from origin:', event.origin);
-        return;
-      }
-
-      // Open external link in system browser
-      handleExternalLink(message.url);
     }
 
     async function handleExternalLink(url: string) {
@@ -80,7 +97,7 @@ function IframeViewer({
     return () => {
       window.removeEventListener('message', handleMessage);
     };
-  }, []);
+  }, [onPaginationUpdate]);
 
   return (
     <iframe
@@ -94,6 +111,8 @@ function IframeViewer({
       sandbox="allow-same-origin allow-scripts allow-forms"
     />
   );
-}
+});
+
+IframeViewer.displayName = 'IframeViewer';
 
 export default IframeViewer;
